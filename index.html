@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Город Эндонет — Несколько NPC и Квесты</title>
+    <title>Город Эндонет — Карта Мира и Динамичный Рейд</title>
     <style>
         body { margin: 0; overflow: hidden; background: #11141a; font-family: 'Segoe UI', sans-serif; user-select: none; }
         #gameCanvas { display: block; cursor: crosshair; }
@@ -14,8 +14,8 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            pointer-events: none;
             width: 320px;
+            z-index: 10;
         }
 
         .panel {
@@ -35,6 +35,18 @@
             text-transform: uppercase;
         }
 
+        .raid-timer-box {
+            margin-top: 6px;
+            padding: 6px 10px;
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 13px;
+            color: #e74c3c;
+            text-align: center;
+        }
+
         .resources-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -49,38 +61,21 @@
             font-weight: 600;
         }
 
-        .upgrade-card {
-            background: rgba(46, 204, 113, 0.15);
-            border: 1px solid rgba(46, 204, 113, 0.4);
+        .btn-ui {
+            background: #2980b9;
+            color: white;
+            border: none;
+            padding: 12px;
             border-radius: 8px;
-            padding: 8px 12px;
-        }
-
-        .cost-tag {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 11px;
-            margin-right: 2px;
             font-weight: bold;
-        }
-        .cost-coins { background: #f39c12; color: #fff; }
-        .cost-wood { background: #27ae60; color: #fff; }
-        .cost-stone { background: #7f8c8d; color: #fff; }
-
-        #raid-banner {
-            background: rgba(231, 76, 60, 0.25);
-            border: 1px solid #e74c3c;
-            color: #ff6b6b;
-            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.2s;
             text-align: center;
-            padding: 6px;
-            border-radius: 6px;
-            font-size: 13px;
-            display: none;
+            font-size: 14px;
         }
+        .btn-ui:hover { background: #3498db; }
 
-        /* СПИСОК КВЕСТОВ В UI С ИМЕНАМИ NPC */
         .quest-list {
             margin-top: 6px;
             font-size: 12px;
@@ -94,89 +89,150 @@
             border-radius: 6px;
             border-left: 3px solid #f39c12;
         }
-        .quest-item.completed {
-            border-left-color: #2ecc71;
-        }
-        .quest-npc-author {
-            font-size: 11px;
-            color: #f1c40f;
-            font-weight: bold;
-            margin-bottom: 2px;
+        .quest-item.completed { border-left-color: #2ecc71; }
+        .quest-npc-author { font-size: 11px; color: #f1c40f; font-weight: bold; margin-bottom: 2px; }
+
+        /* СЦЕНА ДОМАШНЕЙ БАЗЫ */
+        #home-base-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle, #2c3e50 0%, #0f171e 100%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 500;
+            color: white;
         }
 
-        /* МИНИ-КАРТА */
-        #minimap-container {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 160px;
-            height: 160px;
+        .pedestal-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .hero-avatar {
+            font-size: 80px;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5));
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-12px); }
+        }
+
+        .pedestal {
+            width: 220px;
+            height: 45px;
+            background: linear-gradient(180deg, #d35400, #7f8c8d);
             border-radius: 50%;
-            border: 3px solid rgba(241, 196, 15, 0.8);
-            box-shadow: 0 0 15px rgba(0,0,0,0.6);
-            overflow: hidden;
-            background: #1e272e;
-            pointer-events: none;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.8), inset 0 2px 5px rgba(255,255,255,0.4);
+            margin-top: -20px;
+            margin-bottom: 25px;
+            border: 3px solid #f39c12;
         }
 
-        #minimap {
-            width: 100%;
-            height: 100%;
+        .hero-info-card {
+            background: rgba(20, 25, 38, 0.9);
+            border: 1px solid #f1c40f;
+            border-radius: 12px;
+            padding: 20px;
+            width: 320px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
         }
 
-        /* ДИАЛОГОВОЕ ОКНО NPC */
-        #npc-dialog {
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+        .stat-box { background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; }
+
+        .base-actions { display: flex; gap: 15px; }
+        .btn-upgrade { background: #2ecc71; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-upgrade:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.6; }
+        .btn-upgrade:hover:not(:disabled) { background: #27ae60; }
+        .btn-change { background: #e67e22; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-change:hover { background: #d35400; }
+        .btn-back { position: absolute; top: 30px; left: 30px; background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* ОКНО СПИСКА ГЕРОЕВ */
+        #hero-select-modal {
             position: absolute;
-            top: 50%;
-            left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(20, 25, 38, 0.95);
+            background: rgba(15, 23, 30, 0.98);
             border: 2px solid #f1c40f;
             border-radius: 16px;
-            padding: 20px 25px;
-            color: white;
-            width: 320px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            padding: 20px;
+            width: 80%;
+            max-width: 850px;
             display: none;
-            z-index: 100;
+            z-index: 600;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.9);
         }
-        #npc-dialog h3 { margin: 0 0 10px 0; color: #f1c40f; font-size: 18px; }
-        #npc-dialog p { font-size: 14px; line-height: 1.4; color: #ddd; }
-        .dialog-reward { background: rgba(241, 196, 15, 0.15); padding: 8px; border-radius: 6px; margin: 12px 0; font-size: 13px; }
-        .dialog-buttons { display: flex; justify-content: space-between; gap: 10px; }
-        .btn {
-            flex: 1;
-            padding: 8px 0;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .btn-accept { background: #2ecc71; color: white; }
-        .btn-accept:hover { background: #27ae60; }
-        .btn-skip { background: #e74c3c; color: white; }
-        .btn-skip:hover { background: #c0392b; }
 
-        .controls-hint {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            font-size: 12px;
-            color: rgba(255,255,255,0.7);
-            background: rgba(0,0,0,0.5);
-            padding: 8px 12px;
+        .heroes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .hero-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            transition: 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .hero-card.active { border-color: #2ecc71; background: rgba(46, 204, 113, 0.1); }
+        .hero-card:hover { transform: translateY(-5px); }
+
+        .hero-card-cost {
+            background: rgba(0,0,0,0.3);
             border-radius: 6px;
-            pointer-events: none;
+            padding: 4px;
+            font-size: 11px;
+            margin: 6px 0;
+            color: #f39c12;
+        }
+
+        /* МИНИ-КАРТА И ДИАЛОГИ */
+        #minimap-container {
+            position: absolute; top: 20px; right: 20px;
+            width: 160px; height: 160px; border-radius: 50%;
+            border: 3px solid rgba(241, 196, 15, 0.8); overflow: hidden;
+            background: #1e272e; pointer-events: none;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+        }
+        #minimap { width: 100%; height: 100%; }
+
+        #npc-dialog {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 25, 38, 0.95);
+            border: 2px solid #f1c40f; border-radius: 16px;
+            padding: 20px 25px; color: white; width: 320px;
+            display: none; z-index: 100;
         }
     </style>
 </head>
 <body>
     <div id="ui-container">
         <div class="panel">
-            <div class="world-level-badge">
-                🏰 Город Эндонет | Уровень: <span id="worldLevel">1</span>
-            </div>
+            <div class="world-level-badge">🏰 Замок | Уровень: <span id="worldLevel">1</span></div>
+            <div class="raid-timer-box">⚔️ Рейд врагов через: <span id="raidTimer">45</span>с</div>
             <div class="resources-grid">
                 <div class="res-item">🪙 <span id="coins">0</span></div>
                 <div class="res-item">🪵 <span id="wood">0</span></div>
@@ -184,45 +240,67 @@
             </div>
         </div>
 
-        <div id="raid-banner" class="panel">
-            ⚠️ РЕЙД ВРАГОВ! Осталось: <span id="raid-timer">10</span>с
-        </div>
-
-        <div class="panel upgrade-card">
-            <div style="font-size: 11px; color: #bdc3c7; margin-bottom: 3px;">Улучшение Замка Героев:</div>
-            <div>
-                <span class="cost-tag cost-coins">🪙 <span id="costCoins">50</span></span>
-                <span class="cost-tag cost-wood">🪵 <span id="costWood">10</span></span>
-                <span class="cost-tag cost-stone">🪨 <span id="costStone">10</span></span>
-            </div>
-        </div>
+        <button class="btn-ui" onclick="openHomeBase()">🏠 Домашняя база</button>
 
         <div class="panel">
             <div style="font-weight: bold; font-size: 13px;">📋 Активные Задания:</div>
-            <div id="quest-list" class="quest-list">
-                <div style="color: #7f8c8d; font-style: italic;">Нет активных заданий. Подойдите к NPC.</div>
+            <div id="quest-list" class="quest-list"></div>
+        </div>
+    </div>
+
+    <!-- СЦЕНА ДОМАШНЕЙ БАЗЫ -->
+    <div id="home-base-screen">
+        <button class="btn-back" onclick="closeHomeBase()">← Назад в игру</button>
+        
+        <h2>🏠 Домашняя База Героев</h2>
+
+        <div class="pedestal-container">
+            <div class="hero-avatar" id="base-hero-icon">⚔️</div>
+            <div class="pedestal"></div>
+        </div>
+
+        <div class="hero-info-card">
+            <h3 id="base-hero-name" style="margin:0; color:#f1c40f;">Воин Вальгар</h3>
+            <div id="base-hero-class" style="color:#bdc3c7; font-size:13px; margin-bottom:5px;">Класс: Воин</div>
+            <div style="font-size:14px;">Уровень: <b id="base-hero-lvl" style="color:#2ecc71;">1</b></div>
+            
+            <div class="stats-grid">
+                <div class="stat-box">❤️ Здоровье<br><b id="base-hero-hp">100</b></div>
+                <div class="stat-box">⚔️ Сила<br><b id="base-hero-atk">15</b></div>
+                <div class="stat-box">🛡️ Защита<br><b id="base-hero-def">10</b></div>
             </div>
         </div>
-    </div>
 
-    <div id="minimap-container">
-        <canvas id="minimap" width="160" height="160"></canvas>
-    </div>
-
-    <!-- Модальное диалоговое окно NPC -->
-    <div id="npc-dialog">
-        <h3 id="dialog-title">🧙‍♂️ Имя NPC</h3>
-        <p id="dialog-text">Загрузка квеста...</p>
-        <div class="dialog-reward">Награда: <span id="dialog-reward-text">...</span></div>
-        <div class="dialog-buttons">
-            <button class="btn btn-accept" onclick="acceptQuest()">Принять</button>
-            <button class="btn btn-skip" onclick="skipQuest()">Пропустить</button>
+        <div class="base-actions">
+            <button id="btn-upgrade-hero" class="btn-upgrade" onclick="upgradeCurrentHero()">
+                Улучшить<br>
+                <small id="upgrade-cost-text">🪙 30 | 🪵 15 | 🪨 15</small>
+            </button>
+            <button class="btn-change" onclick="openHeroSelectModal()">Сменить героя</button>
         </div>
     </div>
 
-    <div class="controls-hint">
-        🖱️ <b>ЛКМ</b> — Перемещение / Разговор с NPC / Сбор<br>
-        🖱️ <b>Зажать ПКМ</b> — Свободный осмотр карты
+    <!-- ОКНО ВЫБОРА ГЕРОЕВ -->
+    <div id="hero-select-modal">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; color:#f1c40f;">Выберите героя для боя</h3>
+            <button onclick="closeHeroSelectModal()" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">✖</button>
+        </div>
+        <div id="heroes-list-container" class="heroes-grid"></div>
+    </div>
+
+    <div id="minimap-container"><canvas id="minimap" width="160" height="160"></canvas></div>
+
+    <div id="npc-dialog">
+        <h3 id="dialog-title">🧙‍♂️ Имя NPC</h3>
+        <p id="dialog-text">Загрузка...</p>
+        <div style="background: rgba(241,196,15,0.15); padding:8px; border-radius:6px; margin:12px 0; font-size:13px;">
+            Награда: <span id="dialog-reward-text">...</span>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-ui" style="background:#2ecc71;" onclick="acceptQuest()">Принять</button>
+            <button class="btn-ui" style="background:#e74c3c;" onclick="skipQuest()">Пропустить</button>
+        </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
