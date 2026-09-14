@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Город Эндонет — Несколько NPC и Квесты</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #11141a; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        #gameCanvas { display: block; cursor: crosshair; }
+        
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+            width: 320px;
+        }
+
+        .panel {
+            background: rgba(20, 25, 38, 0.88);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #fff;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .world-level-badge {
+            font-size: 15px;
+            font-weight: 700;
+            color: #e67e22;
+            text-transform: uppercase;
+        }
+
+        .resources-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .res-item {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .upgrade-card {
+            background: rgba(46, 204, 113, 0.15);
+            border: 1px solid rgba(46, 204, 113, 0.4);
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+
+        .cost-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-right: 2px;
+            font-weight: bold;
+        }
+        .cost-coins { background: #f39c12; color: #fff; }
+        .cost-wood { background: #27ae60; color: #fff; }
+        .cost-stone { background: #7f8c8d; color: #fff; }
+
+        #raid-banner {
+            background: rgba(231, 76, 60, 0.25);
+            border: 1px solid #e74c3c;
+            color: #ff6b6b;
+            font-weight: bold;
+            text-align: center;
+            padding: 6px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+        }
+
+        /* СПИСОК КВЕСТОВ В UI С ИМЕНАМИ NPC */
+        .quest-list {
+            margin-top: 6px;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .quest-item {
+            background: rgba(255,255,255,0.05);
+            padding: 8px;
+            border-radius: 6px;
+            border-left: 3px solid #f39c12;
+        }
+        .quest-item.completed {
+            border-left-color: #2ecc71;
+        }
+        .quest-npc-author {
+            font-size: 11px;
+            color: #f1c40f;
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        /* МИНИ-КАРТА */
+        #minimap-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            border: 3px solid rgba(241, 196, 15, 0.8);
+            box-shadow: 0 0 15px rgba(0,0,0,0.6);
+            overflow: hidden;
+            background: #1e272e;
+            pointer-events: none;
+        }
+
+        #minimap {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ДИАЛОГОВОЕ ОКНО NPC */
+        #npc-dialog {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 25, 38, 0.95);
+            border: 2px solid #f1c40f;
+            border-radius: 16px;
+            padding: 20px 25px;
+            color: white;
+            width: 320px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            display: none;
+            z-index: 100;
+        }
+        #npc-dialog h3 { margin: 0 0 10px 0; color: #f1c40f; font-size: 18px; }
+        #npc-dialog p { font-size: 14px; line-height: 1.4; color: #ddd; }
+        .dialog-reward { background: rgba(241, 196, 15, 0.15); padding: 8px; border-radius: 6px; margin: 12px 0; font-size: 13px; }
+        .dialog-buttons { display: flex; justify-content: space-between; gap: 10px; }
+        .btn {
+            flex: 1;
+            padding: 8px 0;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-accept { background: #2ecc71; color: white; }
+        .btn-accept:hover { background: #27ae60; }
+        .btn-skip { background: #e74c3c; color: white; }
+        .btn-skip:hover { background: #c0392b; }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+            background: rgba(0,0,0,0.5);
+            padding: 8px 12px;
+            border-radius: 6px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-container">
+        <div class="panel">
+            <div class="world-level-badge">
+                🏰 Город Эндонет | Уровень: <span id="worldLevel">1</span>
+            </div>
+            <div class="resources-grid">
+                <div class="res-item">🪙 <span id="coins">0</span></div>
+                <div class="res-item">🪵 <span id="wood">0</span></div>
+                <div class="res-item">🪨 <span id="stone">0</span></div>
+            </div>
+        </div>
+
+        <div id="raid-banner" class="panel">
+            ⚠️ РЕЙД ВРАГОВ! Осталось: <span id="raid-timer">10</span>с
+        </div>
+
+        <div class="panel upgrade-card">
+            <div style="font-size: 11px; color: #bdc3c7; margin-bottom: 3px;">Улучшение Замка Героев:</div>
+            <div>
+                <span class="cost-tag cost-coins">🪙 <span id="costCoins">50</span></span>
+                <span class="cost-tag cost-wood">🪵 <span id="costWood">10</span></span>
+                <span class="cost-tag cost-stone">🪨 <span id="costStone">10</span></span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div style="font-weight: bold; font-size: 13px;">📋 Активные Задания:</div>
+            <div id="quest-list" class="quest-list">
+                <div style="color: #7f8c8d; font-style: italic;">Нет активных заданий. Подойдите к NPC.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="minimap-container">
+        <canvas id="minimap" width="160" height="160"></canvas>
+    </div>
+
+    <!-- Модальное диалоговое окно NPC -->
+    <div id="npc-dialog">
+        <h3 id="dialog-title">🧙‍♂️ Имя NPC</h3>
+        <p id="dialog-text">Загрузка квеста...</p>
+        <div class="dialog-reward">Награда: <span id="dialog-reward-text">...</span></div>
+        <div class="dialog-buttons">
+            <button class="btn btn-accept" onclick="acceptQuest()">Принять</button>
+            <button class="btn btn-skip" onclick="skipQuest()">Пропустить</button>
+        </div>
+    </div>
+
+    <div class="controls-hint">
+        🖱️ <b>ЛКМ</b> — Перемещение / Разговор с NPC / Сбор<br>
+        🖱️ <b>Зажать ПКМ</b> — Свободный осмотр карты
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    <script src="game.js"></script>
+</body>
+</html>
